@@ -1,0 +1,6 @@
+cryptography
+flask
+redis
+pymysql
+pytest
+pytest-cov

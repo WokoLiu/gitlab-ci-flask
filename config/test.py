@@ -1,0 +1,7 @@
+MYSQL_HOST = 'mysql'
+MYSQL_PORT = 3306
+MYSQL_USER = 'root'
+MYSQL_PSWD = 'root'
+
+REDIS_HOST = 'redis'
+REDIS_PORT = 6379

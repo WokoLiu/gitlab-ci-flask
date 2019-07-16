@@ -1,0 +1,77 @@
+# 三个阶段
+stages:
+  - test  # 对代码进行测试，包括单元测试和API测试
+  - build  # 将代码打包成镜像，并推送到镜像仓库
+  - deploy  # 部署服务
+
+# 当前 CI 中使用到的所有环境变量
+variables:
+  MYSQL_ROOT_PASSWORD: root  # 给 MySQL service 使用的，默认密码
+  ENV_MODE: test  # 给 Flask app 使用，标记环境
+  PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip  # 给 pip 使用，标记缓存目录
+
+# pip 安装使用缓存
+cache:
+  paths:  # 存放 pip 缓存的位置
+    - .cache/pip
+  key: $CI_PROJECT_ID  # 限制此缓存仅本项目使用
+
+# 当任何分支有更新时，自动做测试
+test:
+  image: python:3.6  # 此 job 需要用 python 镜像
+  stage: test
+  services:
+    - mysql:latest
+    - redis:latest
+  script:
+    - pip install -r requirements.txt  # 安装依赖
+    - echo "init mysql"
+    - python init_db.py  # 初始化 MySQL schema 和数据
+    - echo "start a unit test"
+    - pytest unit --cov=app  # 运行单元测试，统计覆盖率
+    - echo "start an api test"
+    - pytest mock --cov=app  # 运行API测试，统计覆盖率
+  tags:  # 如果使用多个 runner 的话，这里需要指定
+    - services
+
+# 当打了 测试tag 时，自动将 dev-tag 推送到镜像仓库，同时更新 dev-latest 标签
+build-dev:
+  image: docker:latest  # 由于需要打镜像，这里需要使用 docker 镜像 (dind)
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build --pull -t $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG -t $CI_REGISTRY_IMAGE:dev-latest .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    - docker push $CI_REGISTRY_IMAGE:dev-latest
+  only:
+    - /^dev-.*$/
+
+# 当打了 正式tag 时，自动将 tag 推送到镜像仓库，同时更新 latest 标签
+build-prod:
+  image: dokcer:latest
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build --pull -t $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    - docker push $CI_REGISTRY_IMAGE:latest
+  only:
+    - /^\d+\.\d+\.\d+$/
+
+# 打完 测试tag 后，自动部署到测试环境
+deploy_test:
+  stage: deploy
+  script:
+    - echo "deploy for test environment"
+  only:
+    - /^dev-.*$/
+  when: on_success
+
+# 打 正式tag 时，起一个部署到生产环境的 job，但需要手动确认执行
+deploy_prod:
+  stage: deploy
+  script:
+    - echo "deploy for production environment"
+  only:
+    - /^\d+\.\d+\.\d+$/
+  when: manual

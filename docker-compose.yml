@@ -1,0 +1,18 @@
+version: '3.6'
+
+services:
+  woko_test1:
+    image: woko_app
+    deploy:
+      replicas: 1
+      labels:
+        - traefik.port=80
+        - traefik.enable=true
+        - traefik.docker.network=traefik
+        - traefik.frontend.rule=Host:woko
+    networks:
+      traefik:
+
+networks:
+  traefik:
+    external: true
