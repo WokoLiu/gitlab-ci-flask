@@ -2,7 +2,7 @@
 
 这是一个简单的 demo 项目，用于展示如何使用 GitLab-CI 为 Flask 应用做单元测试和API测试
 
-项目中会写一个简单的 flask app，为其添加单元测试和 API 测试，并在 CI 里使用预置数据库进行测试
+项目中会写一个简单的 Flask app，使用 pytest 为其添加单元测试和 API 测试，并在 CI 里使用预置数据库进行测试
 
 # 需要了解的内容：
 * [flask](https://github.com/pallets/flask)
@@ -34,17 +34,15 @@
     └── test_app.py
 ```
 
-应用代码[app.py] 很简单，一共提供四个接口，其中 `/` 用到了 Redis，其他三个接口用到了 MySQL
-
-配置文件[config] 会根据 `ENV_MODE` 环境变量，选择相应的配置文件，并读取配置
-
-单元测试[unit] 只测了 `hit_count` 一个函数，使用 pytest 来运行
-
-API 测试[mock] 里使用了 [Flask 推荐的测试方式](https://flask.palletsprojects.com/en/1.1.x/testing/)，同样使用 pytest
+基本结构中：
+* 应用代码[app.py] 很简单，一共提供四个接口，其中 `/` 用到了 Redis，其他三个接口用到了 MySQL
+* 配置文件[config] 会根据 `ENV_MODE` 环境变量，选择相应的配置文件，并读取配置
+* 单元测试[unit] 只测了 `hit_count` 一个函数，使用 pytest 来运行
+* API 测试[mock] 里使用了 [Flask 推荐的测试方式](https://flask.palletsprojects.com/en/1.1.x/testing/)，同样使用 pytest
 
 以上四部分，都是本地可以直接运行的，就算没有 CI 也可以进行测试
 
-但放到 CI 里时，可以定制数据库数据，以保证每次运行测试时，所有的输入输出都是可预期的
+但放到 CI 里时，可以定制数据库数据，以保证每次运行测试时，数据库里的数据都是确定且相同的
 
 对于运行 CI 时的数据库，有两个想法，一是另外单独打一个数据库镜像，每次运行测试时使用那个镜像；另一个是准备一个 .sql 文件，CI 时进行构建
 
@@ -58,20 +56,23 @@ API 测试[mock] 里使用了 [Flask 推荐的测试方式](https://flask.pallet
 
 ### 1. 准备好 gitlab 以及程序代码
 
-1. 查看自己 gitlab 的版本，我目前只测了 11.11 
+1. 可以用自建的 gitlab，也可以用 gitlab.com
 2. 至少保证 [app.py] 可以成功运行
 
 ### 2. 注册 [gitlab-runner](https://docs.gitlab.com/runner/install/)
 
 至少需要一个 runner，用来运行测试，需要使用 docker 作 executor，以将 MySQL 和 redis 运行为 services
 
-对其他的 job 来说，也可以使用其他的 runner
+如果使用 gitlab.com 的话，可以使用官方给提供的 shared runner，默认就是 docker executor，不需要额外设置
 
-注意，官方文档[这个地方](https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#register-docker-runner)有错误，注册 runner 时添加 service 的参数应该是`--docker-service mysql:latest` 而不是 `--docker-mysql latest`
+> 注意，官方文档[这个地方](https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#register-docker-runner)有错误，注册 runner 时添加 service 的参数应该是`--docker-service mysql:latest` 而不是 `--docker-mysql latest`，我提了 mr 但还没被合并
 
 ### 3. 准备数据库文件和测试用例
 
 即 [init_db.sql]，[unit] 和 [mock]
+
+* [init_db.sql] 我都写到了一行里，是为了在 python:3.6 镜像里使用 python 导入数据，如果可以直接执行文件的话可以写得更好看点（TODO）
+* [unit] 和 [mock] 都单独建了个目录，因为后续可能会有很多测试用例被添加进来
 
 这些可能是最麻烦的部分，当然最初可以简单写，跑通之后再完善
 
@@ -93,7 +94,7 @@ test:
     - pytest unit --cov=app           # 单元测试
     - pytest mock --cov=app           # API测试
   tags:
-    - docker-py36                     # 指定自己创建的 runner
+    - docker-py36                     # 如果需要的话，指定自己创建的 runner
 ```
 
 [.gitlab-ci.yml]里东西要多一些，设置了三个 stages:
@@ -107,7 +108,16 @@ test:
 
 test job 我们并没有设置触发条件，于是使用默认条件：所有 branch 和 tag 操作都会触发
 
-可以在原有项目库里新开一个分支，将 CI 配置提交上去，观察运行情况
+如果是使用自建 gitlab，可以在原有项目库里新开一个分支，将 CI 配置提交上去，观察运行情况
+
+如果是使用 gitlab.com，可以在[这里](https://docs.gitlab.com/ee/ci/ci_cd_for_external_repos/github_integration.html)找到与 github 的关联方式
+
+# 查看本项目 CI 的方式
+
+打开[commit list](https://github.com/WokoLiu/gitlab-ci-flask/commits/master)，可以看到每个 commit 和 pr 后面都有个小小的绿色对号，那就是 GitLab-CI 的执行结果，点击对号后，可以连接进相应的 pipeline。
+
+同时，在提交 pr 的时候，也会自动触发 CI，类似这样
+![pr](https://gitlab.com/help/user/project/integrations/img/github_status_check_pipeline_update.png)
 
 # 优化和完善
 
