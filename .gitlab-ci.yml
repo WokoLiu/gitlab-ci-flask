@@ -31,8 +31,6 @@ test:
     - pytest unit --cov=app  # 运行单元测试，统计覆盖率
     - echo "start an api test"
     - pytest mock --cov=app  # 运行API测试，统计覆盖率
-  tags:  # 如果使用多个 runner 的话，这里需要指定
-    - services
 
 # 当打了 测试tag 时，自动将 dev-tag 推送到镜像仓库，同时更新 dev-latest 标签
 build-dev:
