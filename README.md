@@ -65,8 +65,6 @@
 
 如果使用 gitlab.com 的话，可以使用官方给提供的 shared runner，默认就是 docker executor，不需要额外设置
 
-> 注意，官方文档[这个地方](https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#register-docker-runner)有错误，注册 runner 时添加 service 的参数应该是`--docker-service mysql:latest` 而不是 `--docker-mysql latest`，我提了 mr 但还没被合并
-
 ### 3. 准备数据库文件和测试用例
 
 即 [init_db.sql]，[unit] 和 [mock]
